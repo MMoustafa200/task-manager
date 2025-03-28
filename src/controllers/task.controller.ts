@@ -2,75 +2,100 @@ import { HTTPStatusCode } from "../common/enums";
 import { ITaskAtr, ITaskCreationAtr } from "../common/interfaces";
 import { TaskService } from "../services/task.service";
 import { Request, Response, Router } from "express";
+import asyncHandler from "express-async-handler";
 
 export class TaskController {
   constructor(private readonly service: TaskService = new TaskService()) {}
 
-  private async getList(req: Request, res: Response) {
+  private getList = asyncHandler(async (req: Request, res: Response) => {
     const tasks = await this.service.list();
 
     res.status(HTTPStatusCode.OK).json({
       data: tasks,
     });
-  }
+  });
 
-  private async getById(req: Request<{ id: string }>, res: Response) {
-    const { id } = req.params;
-    const task = await this.service.getById(id);
+  private getById = asyncHandler(
+    async (req: Request<{ id: string }>, res: Response) => {
+      const { id } = req.params;
+      const task = await this.service.getById(id);
 
-    //TODO: if task is null, handle it
+      if (!task) {
+        res.status(HTTPStatusCode.NotFound).json({
+          error: `Task with id ${id} not found`,
+        });
+        return;
+      }
 
-    res.status(HTTPStatusCode.OK).json({
-      data: task,
-    });
-  }
+      res.status(HTTPStatusCode.OK).json({
+        data: task,
+      });
+    }
+  );
 
-  private async postCreate(
-    req: Request<{}, {}, ITaskCreationAtr>,
-    res: Response
-  ) {
-    const newTask = await this.service.createOne(req.body);
+  private postCreate = asyncHandler(
+    async (req: Request<{}, {}, ITaskCreationAtr>, res: Response) => {
+      const newTask = await this.service.createOne(req.body);
+      if (!newTask) {
+        res.status(HTTPStatusCode.BadRequest).json({
+          error: "Failed to create task",
+        });
+        return;
+      }
 
-    res.status(HTTPStatusCode.Created).json({
-      data: newTask,
-    });
-  }
+      res.status(HTTPStatusCode.Created).json({
+        data: newTask,
+      });
+    }
+  );
 
-  private async patchUpdate(
-    req: Request<{ id: string }, {}, Partial<ITaskAtr>>,
-    res: Response
-  ) {
-    const { id } = req.params;
-    const updatedTask = await this.service.updateById(id, req.body);
+  private patchUpdate = asyncHandler(
+    async (
+      req: Request<{ id: string }, {}, Partial<ITaskAtr>>,
+      res: Response
+    ) => {
+      const { id } = req.params;
+      const updatedTask = await this.service.updateById(id, req.body);
 
-    //TODO: if task is null, handle it
+      if (!updatedTask) {
+        res.status(HTTPStatusCode.NotFound).json({
+          error: `Task with id ${id} not found`,
+        });
+        return;
+      }
 
-    res.status(HTTPStatusCode.OK).json({
-      data: updatedTask,
-    });
-  }
+      res.status(HTTPStatusCode.OK).json({
+        data: updatedTask,
+      });
+    }
+  );
 
-  private async deleteById(req: Request<{ id: string }>, res: Response) {
-    const { id } = req.params;
-    const deletedTask = await this.service.deleteById(id);
+  private deleteById = asyncHandler(
+    async (req: Request<{ id: string }>, res: Response) => {
+      const { id } = req.params;
+      const deletedTask = await this.service.deleteById(id);
 
-    //TODO: if task is null, handle it
+      if (!deletedTask) {
+        res.status(HTTPStatusCode.NotFound).json({
+          error: `Task with id ${id} not found`,
+        });
+        return;
+      }
 
-    res.status(HTTPStatusCode.OK).json({});
-  }
+      res.status(HTTPStatusCode.OK).json({
+        message: "Task deleted successfully",
+      });
+    }
+  );
 
   loadRoutes(): Router {
     const router = Router();
 
-    router.get("/", this.getList.bind(this));
-
-    router.get("/:id", this.getById.bind(this));
-
-    router.post("/", this.postCreate.bind(this));
-
-    router.patch("/:id", this.patchUpdate.bind(this));
-
-    router.delete("/:id", this.deleteById.bind(this));
+    router.get("/", this.getList);
+    router.get("/:id", this.getById);
+    router.post("/", this.postCreate);
+    router.patch("/:id", this.patchUpdate);
+    router.delete("/:id", this.deleteById);
 
     return router;
   }
